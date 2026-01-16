@@ -2,6 +2,13 @@
 name = "ads8681"
 version = "0.1.0"
 edition = "2024"
+license-file = "LICENSE"
+description = "A rust library for the ads8681"
+repository = "https://github.com/Eisverygoodletter/ads8681"
+authors = ["Eisverygoodletter"]
+keywords = ["ads868x", "sensor", "embedded"]
+categories = ["embedded", "no-std::no-alloc"]
+readme = "README.md"
 
 [dependencies]
 bisync = "0.3.0"
