@@ -135,6 +135,9 @@ pub enum Ads8681Error<I: CommandInterface> {
 pub struct Ads8681<I> {
     interface: I,
 }
+impl<I: CommandInterface> Ads8681<I> {
+    pub fn new_with_interface(interface: I) -> Self { Self { interface }}
+}
 
 #[bisync]
 impl<I: CommandInterface> Ads8681<I> {

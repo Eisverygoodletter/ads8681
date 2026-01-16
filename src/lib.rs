@@ -18,7 +18,9 @@ pub mod synchronous {
     mod inner;
     pub use inner::*;
 }
-pub struct Ads8681SpiInterface<DRIVER>(DRIVER);
+/// An implementor of `CommandInterface` that can be used to construct a
+/// Ads8681 driver.
+pub struct Ads8681SpiInterface<DRIVER>(pub DRIVER);
 
 pub struct OutputDataWord([u8; 4]);
 impl OutputDataWord {
@@ -361,6 +363,7 @@ pub struct Alarm {
 }
 
 #[repr(u8)]
+#[allow(clippy::unusual_byte_groupings)]
 pub enum CommandBits {
     Noop = 0b0,
     ClearHword = 0b11000_00,
