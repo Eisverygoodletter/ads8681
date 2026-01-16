@@ -1,0 +1,10 @@
+[package]
+name = "ads8681"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bisync = "0.3.0"
+bitfields = "1.0.2"
+embedded-hal = "1.0.0"
+embedded-hal-async = "1.0.0"
