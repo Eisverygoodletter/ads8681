@@ -1,4 +1,5 @@
 #![no_std]
+#![warn(missing_docs)]
 //! Library for the Ads8681 ADC.
 //! This library provides both a sync and async implementation of the driver.
 //! They are in the `synchronous` and `asynchronous` modules respectively.
@@ -10,7 +11,7 @@ pub mod asynchronous {
     mod inner;
     pub use inner::*;
 }
-/// Contains a sync implementation of the ads8681 driver over embedded_hal
+/// Contains a sync implementation of the ads8681 driver over embedded_hal.
 #[path = "."]
 pub mod synchronous {
     use bisync::synchronous::*;
@@ -20,8 +21,11 @@ pub mod synchronous {
 }
 /// An implementor of `CommandInterface` that can be used to construct a
 /// Ads8681 driver.
+#[derive(Debug)]
 pub struct Ads8681SpiInterface<DRIVER>(pub DRIVER);
-
+/// Produced in every write command and noop command. You can acquire one via
+/// `get_data_output`. Contains a conversion result and other appended flags.
+#[derive(Debug, Clone, Copy)]
 pub struct OutputDataWord([u8; 4]);
 impl OutputDataWord {
     /// Just get the conversion result from this [`OutputDataWord`].
@@ -95,25 +99,39 @@ impl OutputDataWord {
 /// An [`OutputDataWord`] can be interpreted for its meaning by using a
 /// [`DataOutCtl`]. See [`OutputDataWord::interpret`].
 pub struct InterpretedOutputDataWord {
+    /// A 16 bit conversion result
     pub conversion_result: u16,
+    /// Device address used for daisy chaining
     pub device_address: Option<DeviceAddress>,
+    /// ADC settings (from range_sel)
     pub adc_input_range: Option<AdcInputRanges>,
+    /// AVDD Alarm high voltage
     pub avdd_alarm_high_flag: Option<bool>,
+    /// AVDD Alarm low voltage
     pub avdd_alarm_low_flag: Option<bool>,
+    /// Input Alarm high voltage
     pub input_alarm_high_flag: Option<bool>,
+    /// Input Alarm low voltage
     pub input_alarm_low_flag: Option<bool>,
+    /// Parity bits for the whole returned message. This library currently
+    /// does not perform any checks using the parity bits.
     pub parity_bits: Option<u8>,
 }
 /// A 9 bit address referring to one of the Ads8681's registers. Note that the
 /// LSB bit is ignored in half word (u16) operations. There's no reason to use
 /// this type unless you're directly interfacing using an implementor of
 /// `CommandInterface`.
+///
+/// The ads8681 registers are all 32 bit registers but are byte indexed, so
+/// [`NineBitAddress::higher_half`] and [`NineBitAddress::higher_quarter`]
+/// are needed for full access.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct NineBitAddress {
     pub(crate) register_address: u8,
     pub(crate) msb: bool,
 }
 impl NineBitAddress {
+    /// Form a full 32 bit input command word.
     pub fn form_full_command(self, command: CommandBits, value_bits: u16) -> [u8; 4] {
         let msb_bit: u8 = if self.msb { 1 } else { 0 };
         [
@@ -129,20 +147,25 @@ impl NineBitAddress {
             msb: false,
         }
     }
-    pub(crate) const fn higher_half(self) -> Self {
+    /// Change this address to refer to the most significant half word of the
+    /// 32 bit register.
+    pub const fn higher_half(self) -> Self {
         Self {
             register_address: self.register_address | 0b10,
             msb: self.msb,
         }
     }
-    pub(crate) const fn higher_quarter(self) -> Self {
+    /// Change this address by incrementing it by 1 byte. This is completely
+    /// ignored by all halfword commands.
+    pub const fn higher_quarter(self) -> Self {
         Self {
             register_address: self.register_address | 0b01,
             msb: self.msb,
         }
     }
 }
-// #[repr(u8)]
+/// What sending a signal through the reset pin does.
+#[repr(u8)]
 pub enum ResetPinFunction {
     /// Full device initialization
     PorClassReset = 0b0,
@@ -161,6 +184,10 @@ impl ResetPinFunction {
         self as u8
     }
 }
+/// The reset power control register is responsible for enabling/disabling
+/// some features on the ads8681. Note that writing to it requires unlocking
+/// the register via the WKEY field first. The driver in this library should
+/// handle that for you automatically.
 #[bitfields::bitfield(u8)]
 pub struct RstPwrCtrl {
     #[bits(1)]
@@ -187,7 +214,9 @@ pub struct SdiMode {
     #[bits(6)]
     _padding: u8,
 }
+/// How the SDO pin should behave.
 #[repr(u8)]
+#[allow(missing_docs)]
 pub enum SdoMode {
     SameAsSdi = 0b00,
     InvalidConfiguration = 0b10,
@@ -205,6 +234,8 @@ impl SdoMode {
         self as u8
     }
 }
+/// How the SDO1 pin should behave. Useful for daisy chaining.
+#[allow(missing_docs)]
 pub enum Sdo1Mode {
     AlwaysTriStated = 0b00,
     FunctionsAsAlarm = 0b01,
@@ -244,8 +275,12 @@ pub struct SdoCtl {
     #[bits(3)]
     _reserved4: u8,
 }
+/// The [`DataVal`] field in the [`DataOutCtl`] register decides how the conversion
+/// data bits are encoded.
+#[allow(missing_docs)]
 #[repr(u8)]
 pub enum DataVal {
+    /// Output normal conversion data
     ConversionData = 0b0,
     AllZeros = 0b100,
     AllOnes = 0b101,
@@ -291,6 +326,9 @@ pub struct DataOutCtl {
     #[bits(1)]
     _reserved3: u8,
 }
+/// ADC input ranges relative to V_ref. Refer to the datasheet for more details.
+#[repr(u8)]
+#[allow(missing_docs)]
 pub enum AdcInputRanges {
     PlusMinusThree = 0b0000,
     PlusMinusTwoPointFive = 0b0001,
@@ -363,7 +401,8 @@ pub struct Alarm {
 }
 
 #[repr(u8)]
-#[allow(clippy::unusual_byte_groupings)]
+#[allow(clippy::unusual_byte_groupings, missing_docs)]
+/// u8 input commands.
 pub enum CommandBits {
     Noop = 0b0,
     ClearHword = 0b11000_00,
@@ -374,18 +413,23 @@ pub enum CommandBits {
     WriteHwordLs = 0b11010_10,
     SetHword = 0b11011_00,
 }
+/// A 4 bit device address. Ignore the upper 4 bits in the [`u8`] inside.
 pub struct DeviceAddress(pub u8);
 
-pub(crate) mod registers {
+/// Contains constant register addresses.
+#[allow(missing_docs)]
+pub mod registers {
     use super::NineBitAddress;
-    pub(crate) const WKEY_VALUE: u8 = 0x69;
-    pub(crate) const DEVICE_ID_REG: NineBitAddress = NineBitAddress::register(0x00);
-    pub(crate) const RST_PWRCTL_REG: NineBitAddress = NineBitAddress::register(0x04);
-    pub(crate) const SDI_CTL_REG: NineBitAddress = NineBitAddress::register(0x08);
-    pub(crate) const SDO_CTL_REG: NineBitAddress = NineBitAddress::register(0x0C);
-    pub(crate) const DATAOUT_CTL_REG: NineBitAddress = NineBitAddress::register(0x10);
-    pub(crate) const RANGE_SEL_REG: NineBitAddress = NineBitAddress::register(0x14);
-    pub(crate) const ALARM_REG: NineBitAddress = NineBitAddress::register(0x20);
-    pub(crate) const ALARM_H_TH_REG: NineBitAddress = NineBitAddress::register(0x24);
-    pub(crate) const ALARM_L_TH_REG: NineBitAddress = NineBitAddress::register(0x28);
+    /// Value the WKEY field in the reset power control register should be set
+    /// to unlock the other fields.
+    pub const WKEY_VALUE: u8 = 0x69;
+    pub const DEVICE_ID_REG: NineBitAddress = NineBitAddress::register(0x00);
+    pub const RST_PWRCTL_REG: NineBitAddress = NineBitAddress::register(0x04);
+    pub const SDI_CTL_REG: NineBitAddress = NineBitAddress::register(0x08);
+    pub const SDO_CTL_REG: NineBitAddress = NineBitAddress::register(0x0C);
+    pub const DATAOUT_CTL_REG: NineBitAddress = NineBitAddress::register(0x10);
+    pub const RANGE_SEL_REG: NineBitAddress = NineBitAddress::register(0x14);
+    pub const ALARM_REG: NineBitAddress = NineBitAddress::register(0x20);
+    pub const ALARM_H_TH_REG: NineBitAddress = NineBitAddress::register(0x24);
+    pub const ALARM_L_TH_REG: NineBitAddress = NineBitAddress::register(0x28);
 }

@@ -2,8 +2,8 @@
 //! generate both sync and async implementations from one async implementation.
 use super::{bisync, only_async, only_sync};
 use crate::{
-    Alarm, CommandBits, DataOutCtl, DeviceAddress, NineBitAddress, OutputDataWord, RangeSel,
-    RstPwrCtrl, SdiMode, SdoCtl, registers,
+    Ads8681SpiInterface, Alarm, CommandBits, DataOutCtl, DeviceAddress, NineBitAddress,
+    OutputDataWord, RangeSel, RstPwrCtrl, SdiMode, SdoCtl, registers,
 };
 
 /// Interface for input and output commands from the Ads8681.
@@ -126,23 +126,38 @@ where
     }
 }
 
+/// An error from the [`Ads8681`] driver.
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ads8681Error<I: CommandInterface> {
+    /// An underlying error produced by the interface implementor
     Underlying(I::Error),
 }
 
 /// Driver for the Ads8681.
+#[derive(Debug)]
 pub struct Ads8681<I> {
     interface: I,
 }
 impl<I: CommandInterface> Ads8681<I> {
-    pub fn new_with_interface(interface: I) -> Self { Self { interface }}
+    /// Construct a new driver instance using a provider of the [`CommandInterface`].
+    pub fn new_with_interface(interface: I) -> Self {
+        Self { interface }
+    }
+}
+impl<I: eh::spi::SpiDevice> Ads8681<Ads8681SpiInterface<I>> {
+    /// Construct a new driver instance using a SPI driver. The [`CommandInterface`]
+    /// is handled internally.
+    pub fn new_with_spi(spi: I) -> Self {
+        Self {
+            interface: Ads8681SpiInterface(spi),
+        }
+    }
 }
 
 #[bisync]
 impl<I: CommandInterface> Ads8681<I> {
-    /// Send a noop command to get a [`OutputDataWord`]. This object always contains
-    /// conversion data.
+    /// Send a noop command to get a [`OutputDataWord`].
     pub async fn get_data_output(&mut self) -> Result<OutputDataWord, Ads8681Error<I>> {
         let output = self
             .interface
@@ -151,6 +166,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Set the 4 bit device address. Useful for daisy chaining.
     pub async fn set_device_address(
         &mut self,
         address: DeviceAddress,
@@ -162,6 +178,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get the 4 bit device address used for daisy chaining.
     pub async fn get_device_address(&mut self) -> Result<DeviceAddress, Ads8681Error<I>> {
         let output = self
             .interface
@@ -170,6 +187,8 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(DeviceAddress(output))
     }
+    /// Get the value of the reset power control register. Note that this does
+    /// not include the WKEY field, which this library will handle for you.
     pub async fn get_rst_pwrctrl(&mut self) -> Result<RstPwrCtrl, Ads8681Error<I>> {
         let output = self
             .interface
@@ -195,7 +214,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .write_hword_ls(registers::RST_PWRCTL_REG, value.into_bits() as u16)
             .await
             .map_err(Ads8681Error::Underlying)?;
-        // write 0 to WKEY to lock it
+        // write 0 to WKEY to lock it (not super necessary but better to be safe)
         let output = self
             .interface
             .write_hword_ms(registers::RST_PWRCTL_REG, 0)
@@ -203,6 +222,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get the SDI pin configuration
     pub async fn get_sdi_ctl(&mut self) -> Result<SdiMode, Ads8681Error<I>> {
         let output = self
             .interface
@@ -211,6 +231,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(SdiMode::from(output))
     }
+    /// Set the SDI pin configuration
     pub async fn set_sdi_ctl(&mut self, mode: SdiMode) -> Result<OutputDataWord, Ads8681Error<I>> {
         let output = self
             .interface
@@ -219,6 +240,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get sdo pin configuration
     pub async fn get_sdo_ctl(&mut self) -> Result<SdoCtl, Ads8681Error<I>> {
         let output = self
             .interface
@@ -227,6 +249,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(SdoCtl::from(output))
     }
+    /// Set sdo pin configuration
     pub async fn set_sdo_ctl(
         &mut self,
         sdo_config: SdoCtl,
@@ -238,6 +261,8 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get the contents of the data out register. This can be combined with
+    /// [`OutputDataWord`] to produce interpretable results.
     pub async fn get_dataout_ctl(&mut self) -> Result<DataOutCtl, Ads8681Error<I>> {
         let output = self
             .interface
@@ -246,6 +271,8 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(DataOutCtl::from(output))
     }
+    /// Set the data out register. This changes how [`OutputDataWord`]s are
+    /// encoded.
     pub async fn set_dataout_ctl(
         &mut self,
         dataout_ctl: DataOutCtl,
@@ -257,6 +284,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get information about the ADC range selection.
     pub async fn get_range_sel(&mut self) -> Result<RangeSel, Ads8681Error<I>> {
         let output = self
             .interface
@@ -265,6 +293,8 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(RangeSel::from(output))
     }
+    /// Set the ADC's range selection info. see [`RangeSel`] and refer to the
+    /// datasheet for more information.
     pub async fn set_range_sel(
         &mut self,
         range_sel: RangeSel,
@@ -276,6 +306,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get information about alarm flags.
     pub async fn get_alarm(&mut self) -> Result<Alarm, Ads8681Error<I>> {
         let output = self
             .interface
@@ -284,6 +315,8 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(Alarm::from(output))
     }
+    /// Get the alarm hysteresis value. Refer to the datasheet for how hysteresis
+    /// is used.
     pub async fn get_alarm_hysteresis(&mut self) -> Result<u8, Ads8681Error<I>> {
         let output = self
             .interface
@@ -292,6 +325,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Set the alarm hysteresis value.
     pub async fn set_alarm_hysteresis(
         &mut self,
         hysteresis: u8,
@@ -306,6 +340,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Get the high-end threshold for the input voltage alarm.
     pub async fn get_inp_alarm_high_threshold(&mut self) -> Result<u16, Ads8681Error<I>> {
         let output = self
             .interface
@@ -314,6 +349,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Set the high-end threshold for the input voltage alarm.
     pub async fn set_inp_alarm_high_threshold(
         &mut self,
         threshold: u16,
@@ -325,7 +361,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
-
+    /// Get the low-end threshold for the input voltage alarm.
     pub async fn get_inp_alarm_low_threshold(&mut self) -> Result<u16, Ads8681Error<I>> {
         let output = self
             .interface
@@ -334,6 +370,7 @@ impl<I: CommandInterface> Ads8681<I> {
             .map_err(Ads8681Error::Underlying)?;
         Ok(output)
     }
+    /// Set the low-end threshold for the input voltage alarm.
     pub async fn set_inp_alarm_low_threshold(
         &mut self,
         threshold: u16,
