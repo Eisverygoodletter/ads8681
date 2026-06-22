@@ -3,6 +3,9 @@
 //! Library for the Ads8681 ADC.
 //! This library provides both a sync and async implementation of the driver.
 //! They are in the `synchronous` and `asynchronous` modules respectively.
+
+use defmt::Format;
+
 /// Contains an async implementation of the ads8681 driver over embedded_hal_async.
 #[path = "."]
 pub mod asynchronous {
@@ -21,12 +24,12 @@ pub mod synchronous {
 }
 /// An implementor of `CommandInterface` that can be used to construct a
 /// Ads8681 driver.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ads8681SpiInterface<DRIVER>(pub DRIVER);
 /// Produced in every write command and noop command. You can acquire one via
 /// `get_data_output`. Contains a conversion result and other appended flags.
-#[derive(Debug, Clone, Copy)]
-pub struct OutputDataWord([u8; 4]);
+#[derive(Debug, Clone, Copy, Format)]
+pub struct OutputDataWord(pub [u8; 4]);
 impl OutputDataWord {
     /// Just get the conversion result from this [`OutputDataWord`].
     pub fn get_conversion_result(self) -> u16 {
@@ -98,6 +101,7 @@ impl OutputDataWord {
 }
 /// An [`OutputDataWord`] can be interpreted for its meaning by using a
 /// [`DataOutCtl`]. See [`OutputDataWord::interpret`].
+#[derive(Debug, Clone, Copy, Format, PartialEq, Eq)]
 pub struct InterpretedOutputDataWord {
     /// A 16 bit conversion result
     pub conversion_result: u16,
@@ -125,7 +129,7 @@ pub struct InterpretedOutputDataWord {
 /// The ads8681 registers are all 32 bit registers but are byte indexed, so
 /// [`NineBitAddress::higher_half`] and [`NineBitAddress::higher_quarter`]
 /// are needed for full access.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub struct NineBitAddress {
     pub(crate) register_address: u8,
     pub(crate) msb: bool,
@@ -166,6 +170,7 @@ impl NineBitAddress {
 }
 /// What sending a signal through the reset pin does.
 #[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum ResetPinFunction {
     /// Full device initialization
     PorClassReset = 0b0,
@@ -189,6 +194,7 @@ impl ResetPinFunction {
 /// the register via the WKEY field first. The driver in this library should
 /// handle that for you automatically.
 #[bitfields::bitfield(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct RstPwrCtrl {
     #[bits(1)]
     pub power_down: bool,
@@ -206,6 +212,7 @@ pub struct RstPwrCtrl {
     _reserved: u8,
 }
 #[bitfields::bitfield(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct SdiMode {
     #[bits(1)]
     cphase: bool,
@@ -217,6 +224,7 @@ pub struct SdiMode {
 /// How the SDO pin should behave.
 #[repr(u8)]
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum SdoMode {
     SameAsSdi = 0b00,
     InvalidConfiguration = 0b10,
@@ -236,6 +244,7 @@ impl SdoMode {
 }
 /// How the SDO1 pin should behave. Useful for daisy chaining.
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum Sdo1Mode {
     AlwaysTriStated = 0b00,
     FunctionsAsAlarm = 0b01,
@@ -257,6 +266,7 @@ impl Sdo1Mode {
     }
 }
 #[bitfields::bitfield(u16)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct SdoCtl {
     #[bits(2)]
     pub sdo_mode: SdoMode,
@@ -279,6 +289,7 @@ pub struct SdoCtl {
 /// data bits are encoded.
 #[allow(missing_docs)]
 #[repr(u8)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum DataVal {
     /// Output normal conversion data
     ConversionData = 0b0,
@@ -302,6 +313,7 @@ impl DataVal {
     }
 }
 #[bitfields::bitfield(u16)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct DataOutCtl {
     #[bits(3)]
     pub data_val: DataVal,
@@ -329,6 +341,7 @@ pub struct DataOutCtl {
 /// ADC input ranges relative to V_ref. Refer to the datasheet for more details.
 #[repr(u8)]
 #[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum AdcInputRanges {
     PlusMinusThree = 0b0000,
     PlusMinusTwoPointFive = 0b0001,
@@ -361,6 +374,7 @@ impl AdcInputRanges {
     }
 }
 #[bitfields::bitfield(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct RangeSel {
     /// Refer to datasheet for values
     #[bits(4)]
@@ -373,6 +387,7 @@ pub struct RangeSel {
     _reserved2: u8,
 }
 #[bitfields::bitfield(u16)]
+#[derive(Clone, Copy, PartialEq, Eq, Format)]
 pub struct Alarm {
     #[bits(1)]
     pub ovw_alarm: bool,
@@ -403,6 +418,7 @@ pub struct Alarm {
 #[repr(u8)]
 #[allow(clippy::unusual_byte_groupings, missing_docs)]
 /// u8 input commands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub enum CommandBits {
     Noop = 0b0,
     ClearHword = 0b11000_00,
@@ -414,6 +430,7 @@ pub enum CommandBits {
     SetHword = 0b11011_00,
 }
 /// A 4 bit device address. Ignore the upper 4 bits in the [`u8`] inside.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub struct DeviceAddress(pub u8);
 
 /// Contains constant register addresses.
