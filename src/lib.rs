@@ -22,6 +22,12 @@ pub mod synchronous {
     mod inner;
     pub use inner::*;
 }
+
+/// Driver for the Ads8681.
+#[derive(Debug)]
+pub struct Ads8681<I> {
+    interface: I,
+}
 /// An implementor of `CommandInterface` that can be used to construct a
 /// Ads8681 driver.
 #[derive(Debug, Clone)]
@@ -132,14 +138,12 @@ pub struct InterpretedOutputDataWord {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Format)]
 pub struct NineBitAddress {
     pub(crate) register_address: u8,
-    pub(crate) msb: bool,
 }
 impl NineBitAddress {
     /// Form a full 32 bit input command word.
     pub fn form_full_command(self, command: CommandBits, value_bits: u16) -> [u8; 4] {
-        let msb_bit: u8 = if self.msb { 1 } else { 0 };
         [
-            (command as u8) << 1 | msb_bit,
+            (command as u8) << 1,
             self.register_address,
             (value_bits >> 8) as u8,
             (value_bits & 0x00FF) as u8,
@@ -148,23 +152,12 @@ impl NineBitAddress {
     const fn register(addr: u8) -> Self {
         Self {
             register_address: addr,
-            msb: false,
         }
     }
-    /// Change this address to refer to the most significant half word of the
-    /// 32 bit register.
-    pub const fn higher_half(self) -> Self {
+    /// Change this address to refer to 1 byte higher than the original.
+    pub const fn one_byte_higher(self) -> Self {
         Self {
-            register_address: self.register_address | 0b10,
-            msb: self.msb,
-        }
-    }
-    /// Change this address by incrementing it by 1 byte. This is completely
-    /// ignored by all halfword commands.
-    pub const fn higher_quarter(self) -> Self {
-        Self {
-            register_address: self.register_address | 0b01,
-            msb: self.msb,
+            register_address: self.register_address + 1,
         }
     }
 }
