@@ -79,7 +79,7 @@ where
         Ok(OutputDataWord(buf))
     }
     async fn read_hword(&mut self, addr: NineBitAddress) -> Result<u16, Self::Error> {
-        let mut buf = addr.form_full_command(CommandBits::ClearHword, 0);
+        let mut buf = addr.form_full_command(CommandBits::ReadHword, 0);
         self.0.transfer_in_place(&mut buf).await?;
         Ok((buf[0] as u16) << 8 | (buf[1] as u16))
     }
