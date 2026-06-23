@@ -128,7 +128,7 @@ where
 
 /// An error from the [`Ads8681`] driver.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, defmt::Format)]
 pub enum Ads8681Error<I: CommandInterface> {
     /// An underlying error produced by the interface implementor
     Underlying(I::Error),
