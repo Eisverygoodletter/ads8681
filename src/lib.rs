@@ -28,6 +28,12 @@ pub mod synchronous {
 pub struct Ads8681<I> {
     interface: I,
 }
+impl<I> Ads8681<I> {
+    /// Expose the underlying interface.
+    pub fn expose_inner(&mut self) -> &mut I {
+        &mut self.interface
+    }
+}
 /// An implementor of `CommandInterface` that can be used to construct a
 /// Ads8681 driver.
 #[derive(Debug, Clone)]
