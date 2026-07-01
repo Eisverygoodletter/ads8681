@@ -23,6 +23,18 @@ pub mod synchronous {
     pub use inner::*;
 }
 
+/// How this driver should wait for the conversion to complete. In most
+/// ADS8681 operations, the driver has to wait for either t_conv or RVS pin
+/// rising edge before starting the read operation.
+#[derive(Debug, Format, Clone, PartialEq)]
+pub enum Ads8681WaitMode<P> {
+    /// Block by repeatedly polling [`embedded_hal::digital::InputPin::is_high`]
+    SyncBlocking(P),
+    /// Block by using [`embedded_hal_async::digital::Wait::wait_for_high`].
+    /// This allows task switching while the driver waits for the conversion.
+    AsyncBlocking(P),
+}
+
 /// Driver for the Ads8681.
 #[derive(Debug)]
 pub struct Ads8681<I> {
@@ -37,7 +49,7 @@ impl<I> Ads8681<I> {
 /// An implementor of `CommandInterface` that can be used to construct a
 /// Ads8681 driver.
 #[derive(Debug, Clone)]
-pub struct Ads8681SpiInterface<DRIVER>(pub DRIVER);
+pub struct Ads8681SpiInterface<DRIVER, RVS>(DRIVER, Ads8681WaitMode<RVS>);
 /// Produced in every write command and noop command. You can acquire one via
 /// `get_data_output`. Contains a conversion result and other appended flags.
 #[derive(Debug, Clone, Copy, Format)]
